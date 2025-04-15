@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hexágono com Bola e Gravidade</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <!-- Three.js -->
+  <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+  <!-- OrbitControls -->
+  <script src="https://unpkg.com/three@0.155.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Cannon-es -->
+  <script type="module">
+    import * as CANNON from 'https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+    // Luzes
+    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambient);
+    const light = new THREE.DirectionalLight(0xffffff, 0.9);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+
+    // Mundo físico
+    const world = new CANNON.World({
+      gravity: new CANNON.Vec3(0, -9.82, 0),
+    });
+
+    // Chão invisível
+    const ground = new CANNON.Body({
+      type: CANNON.Body.STATIC,
+      shape: new CANNON.Plane(),
+    });
+    world.addBody(ground);
+
+    // Bola
+    const ballRadius = 0.2;
+    const ballGeo = new THREE.SphereGeometry(ballRadius, 32, 32);
+    const ballMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    const ballMesh = new THREE.Mesh(ballGeo, ballMat);
+    scene.add(ballMesh);
+
+    const ballBody = new CANNON.Body({
+      mass: 1,
+      shape: new CANNON.Sphere(ballRadius),
+      position: new CANNON.Vec3(0, 2, 0),
+    });
+    world.addBody(ballBody);
+
+    // Hexágono visual
+    const hexGroup = new THREE.Group();
+    const sides = 6;
+    const radius = 2;
+    const height = 1;
+
+    for (let i = 0; i < sides; i++) {
+      const angle = i * (Math.PI * 2 / sides);
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const wallGeo = new THREE.BoxGeometry(0.2, 1, 1);
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x0088ff });
+      const wall = new THREE.Mesh(wallGeo, wallMat);
+      wall.position.set(x, 0.5, z);
+      wall.rotation.y = -angle;
+      hexGroup.add(wall);
+    }
+    scene.add(hexGroup);
+
+    camera.position.set(5, 4, 5);
+    controls.update();
+
+    // Animação
+    let angle = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      world.step(1 / 60);
+
+      // Rotação do hexágono
+      angle += 0.01;
+      hexGroup.rotation.y = angle;
+
+      // Atualiza bola
+      ballMesh.position.copy(ballBody.position);
+      ballMesh.quaternion.copy(ballBody.quaternion);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
