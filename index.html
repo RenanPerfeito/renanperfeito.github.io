@@ -1,103 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Hexágono com Bola e Gravidade</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-  </style>
-</head>
-<body>
-  <!-- Three.js -->
-  <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
-  <!-- OrbitControls -->
-  <script src="https://unpkg.com/three@0.155.0/examples/js/controls/OrbitControls.js"></script>
-  <!-- Cannon-es -->
-  <script type="module">
-    import * as CANNON from 'https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js';
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Simulação 3D com Gravidade</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #111;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js";
+      import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/controls/OrbitControls.js";
+      import * as CANNON from "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js";
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
 
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      camera.position.set(0, 2, 5);
+      controls.update();
 
-    // Luzes
-    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-    scene.add(ambient);
-    const light = new THREE.DirectionalLight(0xffffff, 0.9);
-    light.position.set(5, 10, 5);
-    scene.add(light);
+      const world = new CANNON.World({
+        gravity: new CANNON.Vec3(0, -9.82, 0),
+      });
 
-    // Mundo físico
-    const world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -9.82, 0),
-    });
+      const groundMaterial = new CANNON.Material("ground");
 
-    // Chão invisível
-    const ground = new CANNON.Body({
-      type: CANNON.Body.STATIC,
-      shape: new CANNON.Plane(),
-    });
-    world.addBody(ground);
+      // Hexágono (como plano inclinado girando)
+      const hexShape = new CANNON.Box(new CANNON.Vec3(2.5, 0.1, 2.5));
+      const hexBody = new CANNON.Body({
+        mass: 0,
+        shape: hexShape,
+        material: groundMaterial,
+      });
+      world.addBody(hexBody);
 
-    // Bola
-    const ballRadius = 0.2;
-    const ballGeo = new THREE.SphereGeometry(ballRadius, 32, 32);
-    const ballMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const ballMesh = new THREE.Mesh(ballGeo, ballMat);
-    scene.add(ballMesh);
+      const hexGeometry = new THREE.CylinderGeometry(2.5, 2.5, 0.2, 6);
+      const hexMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+      const hexMesh = new THREE.Mesh(hexGeometry, hexMaterial);
+      hexMesh.rotation.x = Math.PI / 2;
+      scene.add(hexMesh);
 
-    const ballBody = new CANNON.Body({
-      mass: 1,
-      shape: new CANNON.Sphere(ballRadius),
-      position: new CANNON.Vec3(0, 2, 0),
-    });
-    world.addBody(ballBody);
+      // Esfera com gravidade
+      const sphereRadius = 0.2;
+      const sphereBody = new CANNON.Body({
+        mass: 1,
+        shape: new CANNON.Sphere(sphereRadius),
+        position: new CANNON.Vec3(0, 2, 0),
+      });
+      world.addBody(sphereBody);
 
-    // Hexágono visual
-    const hexGroup = new THREE.Group();
-    const sides = 6;
-    const radius = 2;
-    const height = 1;
+      const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+      const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+      const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      scene.add(sphereMesh);
 
-    for (let i = 0; i < sides; i++) {
-      const angle = i * (Math.PI * 2 / sides);
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      const wallGeo = new THREE.BoxGeometry(0.2, 1, 1);
-      const wallMat = new THREE.MeshStandardMaterial({ color: 0x0088ff });
-      const wall = new THREE.Mesh(wallGeo, wallMat);
-      wall.position.set(x, 0.5, z);
-      wall.rotation.y = -angle;
-      hexGroup.add(wall);
-    }
-    scene.add(hexGroup);
+      // Luz
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(ambientLight);
+      const pointLight = new THREE.PointLight(0xffffff, 0.8);
+      pointLight.position.set(5, 5, 5);
+      scene.add(pointLight);
 
-    camera.position.set(5, 4, 5);
-    controls.update();
+      // Animação
+      function animate() {
+        requestAnimationFrame(animate);
+        hexMesh.rotation.z += 0.005; // Rotação do hexágono
+        hexBody.quaternion.setFromEuler(-Math.PI / 2, 0, hexMesh.rotation.z);
 
-    // Animação
-    let angle = 0;
-    function animate() {
-      requestAnimationFrame(animate);
-      world.step(1 / 60);
+        world.step(1 / 60);
+        sphereMesh.position.copy(sphereBody.position);
+        sphereMesh.quaternion.copy(sphereBody.quaternion);
 
-      // Rotação do hexágono
-      angle += 0.01;
-      hexGroup.rotation.y = angle;
+        renderer.render(scene, camera);
+      }
 
-      // Atualiza bola
-      ballMesh.position.copy(ballBody.position);
-      ballMesh.quaternion.copy(ballBody.quaternion);
+      animate();
 
-      renderer.render(scene, camera);
-    }
-
-    animate();
-  </script>
-</body>
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
 </html>
